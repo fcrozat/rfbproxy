@@ -1157,7 +1157,7 @@ static int do_server_initialization (int clientr, int clientw,
 
 static size_t variable_part (unsigned char *buffer)
 {
-	int message = (int) *buffer;
+	uint8_t message = (uint8_t) *buffer;
 	switch (message) {
 	case 0: /* SetPixelFormat */
 	case 3: /* FramebufferUpdateRequest */
@@ -1189,7 +1189,7 @@ static size_t variable_part (unsigned char *buffer)
 	} /* switch */
 
 	/* Caught earlier anwyay */
-	fprintf (stderr, "Protocol error\n");
+	fprintf (stderr, "Protocol error in variable part (%d)\n", message);
 	exit (1);
 }
 
@@ -1206,7 +1206,7 @@ static int process_client_message (unsigned char *fixed, char *variable, FILE *f
 	static unsigned int current_x, current_y;
 	static unsigned char current_buttons;
 	int ms;
-	int message = (int) *fixed;
+	uint8_t message = (uint8_t) *fixed;
 
 	gettimeofday (&tv, &tz);
 	if (!last_tv.tv_sec && !last_tv.tv_usec)
@@ -1341,7 +1341,7 @@ static int process_client_message (unsigned char *fixed, char *variable, FILE *f
 		fputs ("# ClientCutText not supported yet\n", f);
 		break;
 	default:
-		fprintf (stderr, "Protocol error\n");
+		fprintf (stderr, "Protocol error: message %d\n", message);
 		exit (1);
 	}
 	return 0;
