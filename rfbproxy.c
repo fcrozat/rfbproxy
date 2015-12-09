@@ -1163,6 +1163,7 @@ static size_t variable_part (unsigned char *buffer)
 	case 3: /* FramebufferUpdateRequest */
 	case 4: /* KeyEvent */
 	case 5: /* PointerEvent */
+	case 150: /* PointerEvent */
 		/* No variable part */
 		return 0;
 	case 1: /* FixColourMapEntries */
@@ -1184,6 +1185,12 @@ static size_t variable_part (unsigned char *buffer)
 		uint32_t length;
 		memcpy (&length, buffer + 4, 4);
 		length = ntohl (length);
+		return length;
+	}
+	case 248: /* ClientFence*/
+	{
+		uint8_t length;
+		memcpy (&length, buffer + 8, 1);
 		return length;
 	}
 	} /* switch */
@@ -1340,6 +1347,13 @@ static int process_client_message (unsigned char *fixed, char *variable, FILE *f
 	case 6: /* ClientCutText */
 		fputs ("# ClientCutText not supported yet\n", f);
 		break;
+	case 248: /* ClientFence*/
+        /* FIXME
+		fputs ("# ClientFence not supported yet\n", f); */
+		break;
+	case 150: /* EnableContinousUpdates_*/
+		fputs ("# EnableContinousUpdates_ not supported yet\n", f);
+		break;
 	default:
 		fprintf (stderr, "Protocol error: message %d\n", message);
 		exit (1);
@@ -1363,6 +1377,31 @@ void signal_handler(int signum)
 	} else {
 		exit(0);
 	}
+}
+
+static uint8_t msg_length(uint8_t protocol) {
+				switch (protocol) {
+	                /* message lengths */
+				    case 0:
+				        return 20;
+				    case 1:
+				    case 5:
+				        return 6;
+				    case 2:
+				        return 4;
+				    case 3:
+				    case 150:
+				        return 10;
+				    case 4:
+				    case 6:
+				        return 8;
+				    case 248:
+                        return 9;
+				    default:
+				        fprintf (stderr,
+				                "Protocol error (%d)\n", protocol);
+				        exit (1);
+				}
 }
 
 static int record (const char *file, int clientr, int clientw,
@@ -1549,9 +1588,6 @@ static int record (const char *file, int clientr, int clientw,
 			static size_t variable_bytes_got;
 			static size_t client_bytes_got;
 			static size_t client_bytes_left;
-			static const size_t mlen[] = {
-				20, 6, 4, 10, 8, 6, 8
-			}; /* message lengths */
 			char *at = tmp_buffer;
 
 			/* Read the available data */
@@ -1596,12 +1632,7 @@ static int record (const char *file, int clientr, int clientw,
 				}
 
 				/* Figure out what to do with it */
-				if (client_buffer[0] > 6) {
-					fprintf (stderr,
-						 "Protocol error\n");
-					exit (1);
-				}
-				length = mlen[(int) client_buffer[0]];
+				length = msg_length (client_buffer[0]);
 				if (client_bytes_got < length) {
 					client_bytes_left = (length -
 							     client_bytes_got);
@@ -1682,9 +1713,6 @@ static int handle_client_during_playback (int clientr, int cycle, int pause,
 	static size_t variable_bytes_got;
 	static size_t client_bytes_got;
 	static size_t client_bytes_left;
-	static const size_t mlen[] = {
-		20, 6, 4, 10, 8, 6, 8
-	}; /* message lengths */
 	char *at = tmp_buffer;
 	ssize_t bufs;
 	int do_pause = 0;
@@ -1736,7 +1764,7 @@ static int handle_client_during_playback (int clientr, int cycle, int pause,
 				 "Protocol error (%d)\n", client_buffer[0]);
 			exit (1);
 		}
-		length = mlen[(int) client_buffer[0]];
+		length = msg_length(client_buffer[0]);
 		if (client_bytes_got < length) {
 			client_bytes_left = (length -
 					     client_bytes_got);
