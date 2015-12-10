@@ -1758,12 +1758,6 @@ static int handle_client_during_playback (int clientr, int cycle, int pause,
 			client_bytes_got = 1;
 		}
 
-		/* Figure out what to do with it */
-		if (client_buffer[0] > 6) {
-			fprintf (stderr,
-				 "Protocol error (%d)\n", client_buffer[0]);
-			exit (1);
-		}
 		length = msg_length(client_buffer[0]);
 		if (client_bytes_got < length) {
 			client_bytes_left = (length -
