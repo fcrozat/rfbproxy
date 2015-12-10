@@ -1351,8 +1351,8 @@ static int process_client_message (unsigned char *fixed, char *variable, FILE *f
         /* FIXME
 		fputs ("# ClientFence not supported yet\n", f); */
 		break;
-	case 150: /* EnableContinousUpdates_*/
-		fputs ("# EnableContinousUpdates_ not supported yet\n", f);
+	case 150: /* EnableContinousUpdates*/
+        /*fputs ("# EnableContinousUpdates not supported yet\n", f);*/
 		break;
 	default:
 		fprintf (stderr, "Protocol error: message %d\n", message);
