@@ -2207,7 +2207,7 @@ static int playback (const char *filename, int clientr, int clientw, int loop,
 				break;
 
 			default:
-				fprintf(stderr, "Unknown RFB message\n");
+				fprintf(stderr, "Unknown RFB message (%d)\n",fileptr.cursor[0]);
 				break;
 			}
 		}
@@ -2622,7 +2622,7 @@ static int export (const char *filename, int framerate_n, int framerate_m)
 			 * understand.
 			 */
 
-			fprintf(stderr, "Unknown RFB message\n");
+			fprintf(stderr, "Unknown RFB message %d\n", fileptr.cursor[0]);
 			next_packet(&fileptr);
 			break;
 		}
