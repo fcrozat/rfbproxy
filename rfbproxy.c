@@ -2537,6 +2537,10 @@ static void process_FramebufferUpdate(FBSfile *file,
 			process_hextile (file, format,
 					 rectx, recty, rectw, recth);
 			break;
+		case -239:
+            /* Cursor pseudo encoding */
+            next_packet(file);
+            return;
 
 		default:
 
@@ -2547,7 +2551,7 @@ static void process_FramebufferUpdate(FBSfile *file,
 			 * FramebufferUpdate.
 			 */
 
-			fprintf(stderr, "Unknown pixel encoding (%d)\n", type);
+			fprintf(stderr, "Unknown pixel encoding (%x)\n", type);
 			next_packet(file);
 			return;
 
