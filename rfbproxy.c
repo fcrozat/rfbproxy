@@ -1201,7 +1201,7 @@ static size_t variable_part (unsigned char *buffer)
 }
 
 /* For recording */
-static int process_client_message (unsigned char *fixed, char *variable, FILE *f)
+static int process_client_message (unsigned char *fixed, char *variable, FILE *f, char type)
 {
 	static int first = 1;
 	static char delayed_output[100];
@@ -1405,12 +1405,13 @@ static uint8_t msg_length(uint8_t protocol) {
 }
 
 static int record (const char *file, int clientr, int clientw,
-		   struct sockaddr_in server_addr, int do_events_instead,
+        struct sockaddr_in server_addr, char type,
 		   int appenddate, int shared_session)
 {
 	const char *version0 = "FBS 001.000\n";
 	const char *version1 = "FBS 001.001\n";
 	FILE *f;
+	FILE *f_events;
 	int server = -1;
 	struct timeval epoch = { 0, 0 };
 	struct timeval tv;
@@ -1420,7 +1421,10 @@ static int record (const char *file, int clientr, int clientw,
 	char *buf = malloc (BUFSIZE);
 	unsigned char FramebufferUpdateRequest[10];
 	struct FramebufferFormat fbf;
-	time_t now;	
+	time_t now;
+
+    int do_events_instead = type == 'e';
+    int do_both = type == 'b';
 
 	if (!buf) {
 		fprintf (stderr, "Couldn't allocate buffer\n");
@@ -1445,6 +1449,24 @@ static int record (const char *file, int clientr, int clientw,
 		perror ("fopen");
 		exit (1);
 	}
+
+    if (do_both) {
+		if (strlen(file)+4 > BUFSIZE)
+		{	/* Ya, like this is going to happen.  whatever */
+			fprintf (stderr, "Filename is bigger than filename buffer size.  Increase BUFSIZE and recompile\n");
+			exit (1);
+		}
+        sprintf(buf,"%s.pfm",file);
+        f_events = fopen (buf, "wb");
+
+        if (!f_events) {
+            perror ("fopen events");
+            exit (1);
+        }
+    }
+    else
+        f_events = f;
+
 
 	if (!do_events_instead) {
 		if (shared_session) {
@@ -1595,7 +1617,7 @@ static int record (const char *file, int clientr, int clientw,
 			if (!bufs) break;
 			if (!terminating) do_write (server, tmp_buffer, bufs);
 
-			if (!do_events_instead)
+			if (!do_events_instead && !do_both)
 				continue;
 
 			while (bufs) {
@@ -1653,7 +1675,7 @@ static int record (const char *file, int clientr, int clientw,
 				}
 
 				process_client_message (client_buffer,
-							variable_buffer, f);
+							variable_buffer, f_events, type);
 				if (variable_bytes_got) {
 					variable_bytes_got = 0;
 					free (variable_buffer);
@@ -1682,6 +1704,9 @@ static int record (const char *file, int clientr, int clientw,
 	free (buf);
 	if (server != -1)
 		close (server);
+
+    if ((f_events != f) && (fclose (f_events)))
+            perror ("Error writing event file");
 
 	if (fclose (f))
 		perror ("Error writing file");
@@ -1777,7 +1802,7 @@ static int handle_client_during_playback (int clientr, int cycle, int pause,
 			/* Incomplete variable part */
 			continue;
 		}
-		
+
 		if (client_buffer[0] == 0) {
 			/* SetPixelFormat */
 			decode_PixelFormat(client_buffer + 4, fbf);
@@ -2058,7 +2083,7 @@ static int playback (const char *filename, int clientr, int clientw, int loop,
 	if (verbose > 0) {
 		fprintf(stderr, "Playing %s\n", filename);
 	}
-	
+
 	while (!fileptr.eof) {
 
 		struct timeval tv, deadline;
@@ -2221,7 +2246,7 @@ static int playback (const char *filename, int clientr, int clientw, int loop,
 	if (verbose > 0) {
 		fprintf(stderr, "Playback (%s) done; ret=%d\n", filename, ret);
 	}
-	
+
 	fclose(outfile);
 	FBSclose(&fileptr);
 	return ret;
@@ -2659,9 +2684,10 @@ static void usage (const char *name)
 		 "               again.\n"
 		 " --cycle=key   (playback only) When multiple files are specified\n"
 		 "               pressing the key will cycle between them.\n"
-		 " --type=[screen|events]\n"
+		 " --type=[screen|events|both]\n"
 		 "               (record only) Capture either screen updates\n"
-		 "               (\"screen\") or keyboard/mouse events (\"events\").\n"
+		 "               (\"screen\") or keyboard/mouse events (\"events\")\n"
+         "               or both (\"both\").\n"
 		 "               The default is \"screen\".\n"
 		 " --framerate=[ntsc|pal|film|m/n]\n"
 		 "               (export only) Specify framerate by name\n"
@@ -2799,6 +2825,8 @@ int main (int argc, char *argv[])
 				type = 's';
 			else if (!strncmp (optarg, "events", l))
 				type = 'e';
+			else if (!strncmp (optarg, "both", l))
+				type = 'b';
 			else usage (argv[0]);
 			break;
 		case 'S':
@@ -2865,6 +2893,7 @@ int main (int argc, char *argv[])
 	    (server && action != 'r') ||
 	    (shared_session && action != 'r') ||
 	    (shared_session && type == 'e') ||
+	    (shared_session && type == 'r') ||
 	    (shared_session && use_stdout) ||
 	    ((framerate != &preset_framerates[0]) && action != 'x') ||
 	    (use_stdout && display))
@@ -2951,7 +2980,7 @@ int main (int argc, char *argv[])
 
 	/* Do it */
 	if (action == 'r') {
-		record (file[0], clientr, clientw, server_addr, type == 'e', appenddate, shared_session);
+		record (file[0], clientr, clientw, server_addr, type, appenddate, shared_session);
 	} else {
 		int file_to_play = 0;
 		int looping = 0;
